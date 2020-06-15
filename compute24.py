@@ -20,36 +20,101 @@ def div(a, b):
     return a / b
 
 
+class Op:
+    def __init__(self, op, name, rank, communitive):
+        self.op = op
+        self.name = name
+        self.rank = rank  # association priority
+        self.communitive = communitive
+
+    def run(self, a, b):
+        return self.op(a, b)
+
+
 # All the operations and their names.
-op_and_name = [(add, '+'), (sub, '-'), (mul, '*'), (div, '/')]
+AllOps = [
+    Op(add, '+', 1, True),
+    Op(sub, '-', 1, False),
+    Op(mul, '*', 2, True),
+    Op(div, '/', 2, False)
+]
 
 
-# Evaluate all possible combinations of nums. The result is a list of tuples.
-# The first is a number, the second is how to compute this number.
+class OpTree:
+    def __init__(self, op, val, left, right):
+        self.op = op
+        self.val = val
+        self.left = left
+        self.right = right
+
+    @classmethod
+    def init_from_op(self, op, left, right):
+        return self(op, op.run(left.val, right.val), left, right)
+
+    @classmethod
+    def init_from_val(self, val):
+        return self(None, val, None, None)
+
+    def __str__(self):
+        if self.left == None or self.right == None:
+            return str(self.val)
+        left_str = ""
+        if self.left.op == None or self.left.op.rank > self.op.rank:
+            left_str = str(self.left)
+        else:
+            left_str = "(%s)" % str(self.left)
+
+        right_str = ""
+        if self.right.op == None or self.right.op.rank > self.op.rank:
+            right_str = str(self.right)
+        else:
+            right_str = "(%s)" % str(self.right)
+
+        if self.op.communitive and left_str > right_str:
+            left_str, right_str = right_str, left_str
+
+        return "%s %s %s" % (left_str, self.op.name, right_str)
+
+
+def CombineOpTree(left, right, op):
+    if op.communitive:
+        if left.val > right.val:
+            left, right = right, left
+    return OpTree.init_from_op(op, left, right)
+
+
+# Evaluate all possible combinations of nums.
 def eval_num(nums):
-    if len(nums) == 1:
-        return [(nums[0], "%s" % nums[0])]
     results = []
+    if len(nums) == 1:
+        OpTree.init_from_val(3)
+        results.append(OpTree.init_from_val(nums[0]))
+        return results
+
     for i in range(1, len(nums)):
         # Divide the numbers into first half and second half
         first_half = eval_num(nums[0:i])
         second_half = eval_num(nums[i:])
         # Try each operation to combine first half and second half results.
-        for op, name in op_and_name:
-            for x1 in first_half:
-                for x2 in second_half:
-                    if name == '/':
-                        if x2[0] == 0: continue
-                        if x1[0] % x2[0] != 0: continue
-                    results.append((op(x1[0], x2[0]),
-                                    "(%s %s %s)" % (x1[1], name, x2[1])))
+        for op in AllOps:
+            for t1 in first_half:
+                for t2 in second_half:
+                    if op.name == '/':
+                        if t2.val == 0: continue
+                        if t1.val % t2.val != 0: continue
+                    results.append(CombineOpTree(t1, t2, op))
     return results
 
 
 def search(nums):
+    results = set([])
     for n in set(itertools.permutations(nums)):
         for r in eval_num(n):
-            if (r[0] == 24): print("%s = 24" % r[1])
+            if (r.val == 24):
+                results.add(str(r))
+
+    for r in results:
+        print("%s = 24" % r)
 
 
 if __name__ == "__main__":
